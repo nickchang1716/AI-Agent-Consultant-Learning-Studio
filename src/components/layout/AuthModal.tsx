@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Github, Mail, X } from 'lucide-react';
 import { useLearning } from '../../context/LearningContext';
 
+/** Google / GitHub 登入需先在 Supabase 設定 Provider；設定完成後改為 true 即可顯示按鈕 */
+const SHOW_OAUTH = false;
+
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const { cloudAvailable, isCloud, userEmail, signInOAuth, signInEmail, signOut } = useLearning();
   const [email, setEmail] = useState('');
@@ -41,15 +44,19 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="mt-3 space-y-3">
-            <button type="button" disabled={busy} className="btn-primary w-full" onClick={() => run(() => signInOAuth('google'))}>
-              使用 Google 登入
-            </button>
-            <button type="button" disabled={busy} className="btn-ghost w-full" onClick={() => run(() => signInOAuth('github'))}>
-              <Github size={16} aria-hidden /> 使用 GitHub 登入
-            </button>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="h-px flex-1 bg-slate-300" /> 或 <span className="h-px flex-1 bg-slate-300" />
-            </div>
+            {SHOW_OAUTH && (
+              <>
+                <button type="button" disabled={busy} className="btn-primary w-full" onClick={() => run(() => signInOAuth('google'))}>
+                  使用 Google 登入
+                </button>
+                <button type="button" disabled={busy} className="btn-ghost w-full" onClick={() => run(() => signInOAuth('github'))}>
+                  <Github size={16} aria-hidden /> 使用 GitHub 登入
+                </button>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="h-px flex-1 bg-slate-300" /> 或 <span className="h-px flex-1 bg-slate-300" />
+                </div>
+              </>
+            )}
             <form
               className="space-y-2"
               onSubmit={(e) => {
