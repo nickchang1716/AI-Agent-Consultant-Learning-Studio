@@ -27,7 +27,10 @@ describe('vramCalculator', () => {
   });
 
   it('GPU 推薦：小模型單卡、大模型多卡', () => {
-    expect(formatGpu(recommendGpu(20))).toBe('1x L40S 48GB');
+    expect(formatGpu(recommendGpu(15))).toBe('1x L4 24GB');
+    expect(formatGpu(recommendGpu(21))).toBe('1x L4 24GB'); // 21/0.9 = 23.3 ≤ 24
+    expect(formatGpu(recommendGpu(30))).toBe('1x L40S 48GB');
+    expect(formatGpu(recommendGpu(300))).toMatch(/^\d+x H100 80GB$/);
     expect(formatGpu(recommendGpu(60))).toBe('1x A100 80GB');
     expect(recommendGpu(300).count).toBeGreaterThanOrEqual(4);
   });

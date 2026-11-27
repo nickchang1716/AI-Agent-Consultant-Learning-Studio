@@ -41,6 +41,7 @@ export interface GpuOption {
 }
 
 const GPUS: { name: string; gb: number }[] = [
+  { name: 'L4 24GB', gb: 24 },
   { name: 'L40S 48GB', gb: 48 },
   { name: 'A100 80GB', gb: 80 },
   { name: 'H100 80GB', gb: 80 },
@@ -52,7 +53,7 @@ export function recommendGpu(totalGB: number): GpuOption {
   for (const g of GPUS) {
     if (g.gb >= need) return { count: 1, name: g.name, perGpuGB: g.gb };
   }
-  const h = GPUS[2];
+  const h = GPUS[GPUS.length - 1]; // 多卡一律以最大規格（H100 80GB）計算
   const count = Math.ceil(need / h.gb);
   return { count, name: h.name, perGpuGB: h.gb };
 }

@@ -18,6 +18,7 @@ export default function FlashcardsPage() {
   const [filter, setFilter] = useState<Filter>('due');
   const [flipped, setFlipped] = useState(false);
   const [cursor, setCursor] = useState(0);
+  const [noAnim, setNoAnim] = useState(false);
 
   const reviewMap = useMemo(() => new Map(snap.cardReviews.map((r) => [r.cardId, r])), [snap.cardReviews]);
   const dueCount = flashcards.filter((c) => isDue(reviewMap.get(c.id))).length;
@@ -37,12 +38,17 @@ export default function FlashcardsPage() {
   function change(f: Filter) {
     setFilter(f);
     setCursor(0);
+    setNoAnim(true);
     setFlipped(false);
+    window.setTimeout(() => setNoAnim(false), 60);
   }
   function rate(r: Rating) {
     if (!card) return;
     rateCard(card.id, r);
+    // 換卡時先關閉動畫再翻回正面，避免下一張卡的答案在翻轉途中被看到
+    setNoAnim(true);
     setFlipped(false);
+    window.setTimeout(() => setNoAnim(false), 60);
     // due 模式下被評分的卡會離開牌堆，游標維持即可指向下一張
     if (filter !== 'due') setCursor((c) => (c + 1) % deck.length);
   }
@@ -76,7 +82,7 @@ export default function FlashcardsPage() {
               type="button"
               onClick={() => setFlipped((f) => !f)}
               aria-label={flipped ? '翻回正面' : '翻面看答案'}
-              className={`flip-card block min-h-[300px] w-full text-left ${flipped ? 'flipped' : ''}`}
+              className={`flip-card block min-h-[300px] w-full text-left ${flipped ? 'flipped' : ''} ${noAnim ? '!transition-none' : ''}`}
             >
               <div className="flip-face card absolute inset-0 flex flex-col justify-center gap-3 overflow-y-auto" aria-hidden={flipped}>
                 <span className="tag self-start">{String(card.moduleId + 1).padStart(2, '0')} {modules[card.moduleId].title}</span>

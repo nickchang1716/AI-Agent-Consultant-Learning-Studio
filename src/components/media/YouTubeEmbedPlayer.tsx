@@ -61,6 +61,7 @@ const YouTubeEmbedPlayer = forwardRef<PlayerHandle, Props>(function YouTubeEmbed
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const lastReported = useRef<number>(-1);
   const progressRef = useRef(onProgress);
   progressRef.current = onProgress;
 
@@ -86,6 +87,7 @@ const YouTubeEmbedPlayer = forwardRef<PlayerHandle, Props>(function YouTubeEmbed
     let cancelled = false;
     let timer: number | undefined;
     setError(null);
+    lastReported.current = Math.floor(startSec);
     loadYouTubeApi()
       .then((YT) => {
         if (cancelled || !host.current) return;
@@ -101,7 +103,11 @@ const YouTubeEmbedPlayer = forwardRef<PlayerHandle, Props>(function YouTubeEmbed
               timer = window.setInterval(() => {
                 try {
                   const t = player.current?.getCurrentTime();
-                  if (typeof t === 'number' && t > 0) progressRef.current?.(t);
+                  // 秒數與上次回報相同（暫停中）就不寫入，避免每 10 秒無謂寫雲端
+                  if (typeof t === 'number' && t > 0 && Math.floor(t) !== lastReported.current) {
+                    lastReported.current = Math.floor(t);
+                    progressRef.current?.(t);
+                  }
                 } catch {
                   /* ignore */
                 }
@@ -121,7 +127,7 @@ const YouTubeEmbedPlayer = forwardRef<PlayerHandle, Props>(function YouTubeEmbed
       if (timer) window.clearInterval(timer);
       try {
         const t = player.current?.getCurrentTime();
-        if (typeof t === 'number' && t > 0) progressRef.current?.(t);
+        if (typeof t === 'number' && t > 0 && Math.floor(t) !== lastReported.current) progressRef.current?.(t);
         player.current?.destroy();
       } catch {
         /* ignore */

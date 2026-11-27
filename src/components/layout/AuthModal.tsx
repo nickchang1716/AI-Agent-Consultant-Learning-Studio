@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Github, Mail, X } from 'lucide-react';
 import { useLearning } from '../../context/LearningContext';
 
-/** Google / GitHub 登入需先在 Supabase 設定 Provider；設定完成後改為 true 即可顯示按鈕 */
-const SHOW_OAUTH = false;
+/** Google / GitHub 登入需先在 Supabase 設定 Provider；設定完成後將 VITE_ENABLE_OAUTH 設為 true 才顯示按鈕 */
+const SHOW_OAUTH = (import.meta.env.VITE_ENABLE_OAUTH as string | undefined)?.trim().toLowerCase() === 'true';
 
 export default function AuthModal({ onClose }: { onClose: () => void }) {
   const { cloudAvailable, isCloud, userEmail, signInOAuth, signInEmail, signOut } = useLearning();

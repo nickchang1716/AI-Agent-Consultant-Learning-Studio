@@ -91,6 +91,8 @@ export default function MarkdownNoteEditor({ moduleId }: { moduleId: number }) {
   }, [flush, moduleId]);
 
   function change(v: string) {
+    // 同步更新 ref：async 流程（多檔上傳）連續呼叫時，下一次讀到的是最新內容而非舊 closure
+    latest.current = { ...latest.current, text: v };
     setText(v);
     dirty.current = true;
     setSaving('dirty');
@@ -113,8 +115,11 @@ export default function MarkdownNoteEditor({ moduleId }: { moduleId: number }) {
 
   function insertAtCursor(snippet: string) {
     const el = ta.current;
-    const pos = el ? el.selectionStart : text.length;
-    change(text.slice(0, pos) + snippet + text.slice(pos));
+    const cur = latest.current.text;
+    const pos = Math.min(el ? el.selectionStart : cur.length, cur.length);
+    change(cur.slice(0, pos) + snippet + cur.slice(pos));
+    // 把游標移到插入內容之後，讓下一張圖接在後面
+    requestAnimationFrame(() => el?.setSelectionRange(pos + snippet.length, pos + snippet.length));
   }
 
   async function handleFiles(files: File[]) {

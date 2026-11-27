@@ -130,6 +130,16 @@ export function mergeSnapshots(base: LearningSnapshot, incoming: LearningSnapsho
   return { preferences, moduleProgress, videoProgress, customVideos, moduleNotes, timestampNotes, cardReviews, parkingQuestions };
 }
 
+/**
+ * 匯入／遷移時「要顯示」與「要寫入儲存層」的內容。
+ * 寫入的是合併後（merged）的結果，不是 incoming：
+ * 儲存層以 upsert 整列覆寫（例如 module_notes.content_md），若只寫 incoming 會蓋掉既有的筆記與進度。
+ */
+export function planImport(current: LearningSnapshot, incoming: LearningSnapshot, opt: MergeOptions = {}): { merged: LearningSnapshot; toWrite: LearningSnapshot } {
+  const merged = mergeSnapshots(current, incoming, opt);
+  return { merged, toWrite: merged };
+}
+
 /** 舊版 JSON → 快照；watched["m-v"] 對應 builtin-v */
 export function legacyToSnapshot(l: LegacyProgress, nowIso: string = new Date().toISOString()): LearningSnapshot {
   const s = emptySnapshot();

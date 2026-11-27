@@ -29,9 +29,9 @@ function AzureMlSvg() {
       <Box x={200} y={64} w={260} h={150} label="Jobs / Experiments（MLflow 指標曲線）" />
       <polyline points="220,190 280,170 340,160 400,140 440,132" fill="none" stroke={TEAL} strokeWidth="3" />
       <Box x={490} y={64} w={290} h={150} label="Compute：cluster / instance 狀態" />
-      <Box x={200} y={240} w={260} h={170} label="Model Registry：版本列表" />
-      <Box x={490} y={240} w={290} h={170} label="Online Endpoints：流量與延遲" />
-      <Box x={200} y={420} w={580} h={20} label="Data assets / Datastore" size={11} fill="#eef2f7" />
+      <Box x={200} y={240} w={260} h={124} label="Model Registry：版本列表" />
+      <Box x={490} y={240} w={290} h={124} label="Online Endpoints：流量與延遲" />
+      <Box x={200} y={376} w={580} h={60} label="Data assets / Datastore" size={13} fill="#eef2f7" />
     </svg>
   );
 }

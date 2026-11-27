@@ -140,6 +140,7 @@ create policy "note_images_select_own" on storage.objects for select
 create policy "note_images_insert_own" on storage.objects for insert
   with check (bucket_id = 'note-images' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "note_images_update_own" on storage.objects for update
-  using (bucket_id = 'note-images' and (storage.foldername(name))[1] = auth.uid()::text);
+  using (bucket_id = 'note-images' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'note-images' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "note_images_delete_own" on storage.objects for delete
   using (bucket_id = 'note-images' and (storage.foldername(name))[1] = auth.uid()::text);

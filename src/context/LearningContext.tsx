@@ -13,10 +13,11 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { SupabaseRepository } from '../services/repo/SupabaseRepository';
 import { LocalRepository, clearLocalSnapshot, localHasData, readLocalSnapshot } from '../services/repo/LocalRepository';
 import type { LearningRepository } from '../services/repo/LearningRepository';
-import { computeStreak, emptySnapshot, legacyToSnapshot, mergeSnapshots, todayStr } from '../lib/snapshot';
+import { computeStreak, emptySnapshot, legacyToSnapshot, planImport, todayStr } from '../lib/snapshot';
 import { newReview, schedule } from '../lib/sm2';
 import { uuid } from '../lib/id';
 import { parseLegacyJson } from '../lib/legacyImport';
+import { parseBackup } from '../lib/backupImport';
 import { isSafeHttpUrl } from '../lib/youtube';
 
 interface Ctx {
@@ -77,7 +78,8 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   const localRepo = useMemo(() => new LocalRepository(), []);
   const [repo, setRepo] = useState<LearningRepository>(localRepo);
   const inflight = useRef(0);
-  const lastFailed = useRef<(() => Promise<void>) | null>(null);
+  /** 目前仍失敗、等待重試的寫入 */
+  const failures = useRef<Set<() => Promise<void>>>(new Set());
   const snapRef = useRef(snap);
   snapRef.current = snap;
   const repoRef = useRef(repo);
@@ -147,15 +149,23 @@ export function LearningProvider({ children }: { children: ReactNode }) {
       if (cloud) setStatus('syncing');
       try {
         await write();
-        lastFailed.current = null;
-        setSyncError(null);
-        if (cloud && inflight.current === 1) setStatus('synced');
+        // 重試成功：只清除自己的失敗紀錄，不影響其他仍失敗的寫入
+        failures.current.delete(exec);
       } catch (e) {
-        lastFailed.current = exec;
+        failures.current.add(exec);
         setSyncError(msg(e));
-        setStatus('error');
       } finally {
         inflight.current -= 1;
+      }
+      // 所有寫入結束後才依「是否仍有失敗」決定狀態，避免後來的成功掩蓋先前的失敗
+      if (cloud && inflight.current === 0) {
+        if (failures.current.size > 0) setStatus('error');
+        else {
+          setStatus('synced');
+          setSyncError(null);
+        }
+      } else if (cloud && failures.current.has(exec)) {
+        setStatus('error');
       }
     };
     return exec();
@@ -175,22 +185,30 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   );
 
   const retry = useCallback(() => {
-    const f = lastFailed.current;
-    if (f) void f();
-    else if (supabase && userId) {
+    // 情況 1：已登入但目前仍是本機 repo（初次雲端載入失敗）→ 重新載入並切換回雲端 repo
+    if (supabase && userId && repoRef.current.kind !== 'cloud') {
+      const cloud = new SupabaseRepository(supabase, userId);
       setStatus('syncing');
-      new SupabaseRepository(supabase, userId)
+      cloud
         .load()
         .then((s) => {
+          setRepo(cloud);
+          repoRef.current = cloud;
           setSnap(s);
+          failures.current.clear();
           setStatus('synced');
           setSyncError(null);
+          setPendingLocalMerge(localHasData());
         })
         .catch((e) => {
           setStatus('error');
           setSyncError(msg(e));
         });
+      return;
     }
+    // 情況 2：雲端寫入失敗 → 重跑所有仍失敗的寫入
+    const pending = [...failures.current];
+    for (const f of pending) void f();
   }, [userId]);
 
   // ---- 動作 ----
@@ -345,8 +363,8 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
   const applyMerged = useCallback(
     (incoming: LearningSnapshot, preferIncomingLast: boolean) => {
-      const merged = mergeSnapshots(snapRef.current, incoming, { preferIncomingLast });
-      void commit(merged, () => repoRef.current.importSnapshot(incoming));
+      const { merged, toWrite } = planImport(snapRef.current, incoming, { preferIncomingLast });
+      void commit(merged, () => repoRef.current.importSnapshot(toWrite));
     },
     [commit],
   );
@@ -368,28 +386,9 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
   const importBackup = useCallback(
     (text: string): string | null => {
-      let raw: unknown;
-      try {
-        raw = JSON.parse(text);
-      } catch {
-        return '檔案不是有效的 JSON。';
-      }
-      if (typeof raw !== 'object' || raw === null) return '格式不符。';
-      const o = raw as { app?: unknown; data?: unknown };
-      if (o.app !== 'ai-consultant-studio' || typeof o.data !== 'object' || o.data === null) return '這不是本系統的備份檔。';
-      const d = o.data as Partial<LearningSnapshot>;
-      const base = emptySnapshot();
-      const incoming: LearningSnapshot = {
-        preferences: { ...base.preferences, ...(d.preferences ?? {}) },
-        moduleProgress: Array.isArray(d.moduleProgress) ? d.moduleProgress.filter((m) => Number.isInteger(m?.moduleId) && m.moduleId >= 0 && m.moduleId <= 11) : [],
-        videoProgress: Array.isArray(d.videoProgress) ? d.videoProgress.filter((v) => Number.isInteger(v?.moduleId) && typeof v.videoKey === 'string') : [],
-        customVideos: Array.isArray(d.customVideos) ? d.customVideos.filter((v) => v && typeof v.id === 'string' && isSafeHttpUrl(String(v.url))) : [],
-        moduleNotes: d.moduleNotes && typeof d.moduleNotes === 'object' ? d.moduleNotes : {},
-        timestampNotes: Array.isArray(d.timestampNotes) ? d.timestampNotes.filter((n) => n && typeof n.id === 'string' && typeof n.noteText === 'string') : [],
-        cardReviews: Array.isArray(d.cardReviews) ? d.cardReviews.filter((c) => c && typeof c.cardId === 'string') : [],
-        parkingQuestions: Array.isArray(d.parkingQuestions) ? d.parkingQuestions.filter((q) => q && typeof q.id === 'string' && typeof q.question === 'string') : [],
-      };
-      applyMerged(incoming, false);
+      const r = parseBackup(text);
+      if (!r.ok) return r.error;
+      applyMerged(r.data, false);
       return null;
     },
     [applyMerged],
@@ -414,10 +413,10 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
   const mergeLocalToCloud = useCallback(async () => {
     const local = readLocalSnapshot();
-    const merged = mergeSnapshots(snapRef.current, local);
+    const { merged, toWrite } = planImport(snapRef.current, local);
     setStatus('syncing');
     try {
-      await repoRef.current.importSnapshot(local);
+      await repoRef.current.importSnapshot(toWrite);
       setSnap(merged);
       clearLocalSnapshot();
       setPendingLocalMerge(false);

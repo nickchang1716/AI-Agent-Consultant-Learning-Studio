@@ -211,7 +211,7 @@ export default function ModulePage() {
       </header>
 
       <div className={split ? 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-6' : 'space-y-6'}>
-        <div className={`space-y-6 ${split ? 'lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto' : ''}`}>
+        <div className={`space-y-6 ${split ? 'lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto' : ''}`}>
           <section aria-labelledby="vid-h" className="space-y-3">
             <h2 id="vid-h" className="text-lg font-bold">影音先修</h2>
             {player}

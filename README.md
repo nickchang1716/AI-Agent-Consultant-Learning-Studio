@@ -47,12 +47,19 @@ npm run build      # 建置（輸出 dist/）
 VITE_SUPABASE_URL=https://你的專案代號.supabase.co
 VITE_SUPABASE_ANON_KEY=你的 anon public key
 VITE_BASE_PATH=./
+VITE_ENABLE_OAUTH=false
 ```
 
 `.env` 已在 `.gitignore`，不會被提交。
 
+`VITE_ENABLE_OAUTH` 控制登入視窗是否顯示 Google／GitHub 按鈕，**預設不顯示**（只有 Email Magic Link）。完成步驟 5 的 Provider 設定後，再改成 `true`。
+
 ### 步驟 5：開啟登入方式
 左側 **Authentication → Providers**：
+
+> 要顯示 Google／GitHub 按鈕：
+> - 本機：把 `.env` 的 `VITE_ENABLE_OAUTH` 改為 `true`，重啟 `npm run dev`。
+> - GitHub Pages：repo → **Settings → Secrets and variables → Actions → Variables** 分頁 → 新增變數 `VITE_ENABLE_OAUTH` = `true`，再重跑部署。
 
 - **Email（Magic Link）**：預設可用，不需額外設定。
 - **GitHub**：

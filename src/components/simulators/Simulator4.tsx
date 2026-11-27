@@ -3,6 +3,31 @@ import { LANES, SCENARIOS, type ScenarioId } from '../../data/simulatorScenarios
 
 type Decision = 'approve' | 'edit' | 'reject' | null;
 
+const ORIGINAL_AMOUNT = 500000;
+const EDITED_AMOUNT = 300000;
+
+/** 遞迴把 payload 中的 amount 換成修改後金額；idempotency_key 的版本也升一版，示意「修改後是新版本」 */
+function applyEditedAmount(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(applyEditedAmount);
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    // 驗證步驟：審核決定由 approve 改為 edit，並同時帶出修改前後金額
+    if (o.decision === 'approve') {
+      return { ...(applyEditedAmount({ ...o, decision: undefined }) as Record<string, unknown>), decision: 'edit', original_amount: ORIGINAL_AMOUNT, edited_amount: EDITED_AMOUNT };
+    }
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>).map(([k, x]) => {
+        if (k === 'amount' && x === ORIGINAL_AMOUNT) return [k, EDITED_AMOUNT];
+        if (k === 'idempotency_key' && typeof x === 'string') return [k, x.replace(/:v(\d+)$/, (_m, n: string) => `:v${Number(n) + 1}`)];
+        if (k === 'version' && typeof x === 'number') return [k, x + 1];
+        if (k === 'action' && x === 'APPROVE') return [k, 'APPROVE_WITH_EDIT'];
+        return [k, applyEditedAmount(x)];
+      }),
+    );
+  }
+  return v;
+}
+
 export default function Simulator4({ defaultMode = 'A' }: { defaultMode?: ScenarioId }) {
   const [mode, setMode] = useState<ScenarioId>(defaultMode);
   const [i, setI] = useState(0);
@@ -28,8 +53,8 @@ export default function Simulator4({ defaultMode = 'A' }: { defaultMode?: Scenar
   const shown =
     rejected && step.gate
       ? { ...step, title: '流程終止', note: '審核人拒絕：流程終止，不呼叫任何外部 API，並寫入稽核。', payload: { decision: 'reject', status: 'terminated', audit_log: { action: 'REJECT', checkpoint_id: 'cp_8f31' } }, tone: 'block' as const }
-      : decision === 'edit' && step.lane === 'external'
-        ? { ...step, payload: { ...(step.payload as object), note: '金額已由審核人修改為 300000，後端以修改後版本重新驗證' } }
+      : decision === 'edit' && sc.steps.findIndex((s) => s.gate) >= 0 && i > sc.steps.findIndex((s) => s.gate)
+        ? { ...step, payload: applyEditedAmount(step.payload), note: `${step.note}（審核人已將金額修改為 ${EDITED_AMOUNT.toLocaleString()}，後續驗證與稽核皆以修改後內容為準。）` }
         : step;
 
   const toneBorder = shown.tone === 'block' ? 'border-red-500' : shown.tone === 'warn' ? 'border-amber-500' : shown.tone === 'ok' ? 'border-emerald-500' : 'border-slate-300';

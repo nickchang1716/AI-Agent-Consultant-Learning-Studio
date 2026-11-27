@@ -13,6 +13,9 @@ describe('youtube', () => {
     expect(parseYouTubeId('https://example.com/watch?v=qYNweeDHiyU')).toBeNull();
     expect(parseYouTubeId('not a url')).toBeNull();
     expect(isSearchUrl('https://www.youtube.com/results?search_query=x')).toBe(true);
+    expect(isSearchUrl('https://youtube.com/results?search_query=x')).toBe(true);
+    expect(isSearchUrl('https://notyoutube.com/results?search_query=x')).toBe(false);
+    expect(isSearchUrl('https://evil.com/youtube.com/results')).toBe(false);
   });
 
   it('只允許 http(s)', () => {

@@ -11,7 +11,8 @@ export function isSafeHttpUrl(raw: string): boolean {
 export function isSearchUrl(raw: string): boolean {
   try {
     const u = new URL(raw);
-    return /youtube\.com$/.test(u.hostname) && u.pathname.startsWith('/results');
+    // 只接受 youtube.com 與其子網域，避免 notyoutube.com 之類被誤判
+    return /(^|\.)youtube\.com$/.test(u.hostname) && u.pathname.startsWith('/results');
   } catch {
     return false;
   }
