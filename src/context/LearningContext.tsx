@@ -410,7 +410,13 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
   const signUpWithPassword = useCallback(async (email: string, password: string): Promise<{ error: string | null; needsConfirmation: boolean }> => {
     if (!supabase) return { error: '尚未設定 Supabase。', needsConfirmation: false };
-    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+    // 若後台仍開著 Confirm email，驗證信導回「目前所在的網址（含專案路徑）」；
+    // 該網址需在 Supabase 的 Redirect URLs 白名單內，否則 Supabase 會改導向 Site URL
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    });
     if (error) return { error: mapAuthError(error.message), needsConfirmation: false };
     if (data.session) return { error: null, needsConfirmation: false }; // 關閉 Confirm email：已直接登入
     // Supabase 反帳號枚舉：Email 已註冊時不回錯誤，而是回傳 identities 為空的假使用者
