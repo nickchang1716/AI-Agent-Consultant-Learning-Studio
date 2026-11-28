@@ -69,7 +69,7 @@ export default function App() {
               <Route path="/labs" element={<LabsPage />} />
               <Route path="/flashcards" element={<FlashcardsPage />} />
               <Route path="/parking" element={<ParkingLotPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings" element={<SettingsPage onOpenAuth={() => setAuthOpen(true)} />} />
               <Route path="*" element={<HomePage />} />
             </Routes>
           )}

@@ -47,29 +47,26 @@ npm run build      # 建置（輸出 dist/）
 VITE_SUPABASE_URL=https://你的專案代號.supabase.co
 VITE_SUPABASE_ANON_KEY=你的 anon public key
 VITE_BASE_PATH=./
-VITE_ENABLE_OAUTH=false
 ```
 
 `.env` 已在 `.gitignore`，不會被提交。
 
-`VITE_ENABLE_OAUTH` 控制登入視窗是否顯示 Google／GitHub 按鈕，**預設不顯示**（只有 Email Magic Link）。完成步驟 5 的 Provider 設定後，再改成 `true`。
+### 步驟 5：設定 Email + 密碼登入
+本專案只使用 Supabase 原生的 **Email + 密碼**（不使用 Google／GitHub、也不使用 Magic Link），註冊與登入都**不會寄信**。
 
-### 步驟 5：開啟登入方式
-左側 **Authentication → Providers**：
+左側 **Authentication → Providers → Email**：
 
-> 要顯示 Google／GitHub 按鈕：
-> - 本機：把 `.env` 的 `VITE_ENABLE_OAUTH` 改為 `true`，重啟 `npm run dev`。
-> - GitHub Pages：repo → **Settings → Secrets and variables → Actions → Variables** 分頁 → 新增變數 `VITE_ENABLE_OAUTH` = `true`，再重跑部署。
+1. 確認 **Enable Email provider** 為開啟。
+2. **關閉「Confirm email」**（關鍵！關閉後註冊完立即登入，且不消耗 Supabase 免費方案很少的寄信額度）。
+3. **Minimum password length** 設為 `8`，按 **Save**。
 
-- **Email（Magic Link）**：預設可用，不需額外設定。
-- **GitHub**：
-  1. GitHub → Settings → Developer settings → OAuth Apps → **New OAuth App**。
-  2. **Authorization callback URL** 填 Supabase 該 Provider 頁面顯示的 *Callback URL*（形如 `https://xxxx.supabase.co/auth/v1/callback`）。
-  3. 建立後把 *Client ID* 與 *Client Secret* 貼回 Supabase 的 GitHub Provider 並啟用。
-- **Google**：
-  1. <https://console.cloud.google.com> → APIs & Services → Credentials → **Create OAuth client ID**（Web application）。
-  2. **Authorized redirect URIs** 填同樣的 Supabase *Callback URL*。
-  3. 把 *Client ID* 與 *Client Secret* 貼回 Supabase 的 Google Provider 並啟用。
+> 若沒有關閉 Confirm email，註冊後畫面會提示「請至信箱點擊驗證連結」，而且可能因寄信額度用完而失敗。
+
+### 親友／同事註冊管理小技巧
+- 每位註冊者的進度、筆記、截圖、閃卡與疑問箱，都由資料庫的 Row Level Security 與私有圖片空間隔離，**彼此完全看不到對方的資料**。
+- **有人忘記密碼**：管理員進 Supabase **Authentication → Users** 找到該帳號，即可協助重設密碼。已登入的使用者也可在登入視窗的「修改密碼」自行更改。
+- **不想再收新註冊者**：在 **Authentication → Providers → Email** 關閉 **Allow new users to sign up**，既有帳號仍可正常登入。
+- 本專案不儲存、不處理密碼，註冊、登入、改密碼全部交給 Supabase Auth（密碼以 bcrypt 雜湊保存）。
 
 ### 步驟 6：設定允許的網址
 **Authentication → URL Configuration**：

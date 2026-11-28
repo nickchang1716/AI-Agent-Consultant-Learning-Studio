@@ -18,6 +18,7 @@ import { newReview, schedule } from '../lib/sm2';
 import { uuid } from '../lib/id';
 import { parseLegacyJson } from '../lib/legacyImport';
 import { parseBackup } from '../lib/backupImport';
+import { mapAuthError } from '../lib/authValidation';
 import { isSafeHttpUrl } from '../lib/youtube';
 
 interface Ctx {
@@ -31,8 +32,9 @@ interface Ctx {
   cloudAvailable: boolean;
   pendingLocalMerge: boolean;
   retry(): void;
-  signInOAuth(provider: 'google' | 'github'): Promise<string | null>;
-  signInEmail(email: string): Promise<string | null>;
+  signInWithPassword(email: string, password: string): Promise<string | null>;
+  signUpWithPassword(email: string, password: string): Promise<{ error: string | null; needsConfirmation: boolean }>;
+  updatePassword(newPassword: string): Promise<string | null>;
   signOut(): Promise<void>;
   mergeLocalToCloud(): Promise<void>;
   dismissLocalMerge(): void;
@@ -97,6 +99,10 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   const userId = session?.user.id ?? null;
   useEffect(() => {
     let cancelled = false;
+    // 多使用者切換安全：登出或換帳號時，丟棄前一位使用者尚未成功的寫入閉包，
+    // 避免下一位使用者按 retry() 時把別人的資料重播到自己的帳號
+    failures.current.clear();
+    setSyncError(null);
     (async () => {
       setReady(false);
       try {
@@ -395,16 +401,27 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   );
 
   // ---- 登入 / 遷移 ----
-  const signInOAuth = useCallback(async (provider: 'google' | 'github') => {
+  // 註冊、登入、改密碼一律走 Supabase Auth SDK；本程式不儲存、不雜湊密碼
+  const signInWithPassword = useCallback(async (email: string, password: string): Promise<string | null> => {
     if (!supabase) return '尚未設定 Supabase。';
-    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin + window.location.pathname } });
-    return error ? error.message : null;
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    return error ? mapAuthError(error.message) : null;
   }, []);
 
-  const signInEmail = useCallback(async (email: string) => {
+  const signUpWithPassword = useCallback(async (email: string, password: string): Promise<{ error: string | null; needsConfirmation: boolean }> => {
+    if (!supabase) return { error: '尚未設定 Supabase。', needsConfirmation: false };
+    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+    if (error) return { error: mapAuthError(error.message), needsConfirmation: false };
+    if (data.session) return { error: null, needsConfirmation: false }; // 關閉 Confirm email：已直接登入
+    // Supabase 反帳號枚舉：Email 已註冊時不回錯誤，而是回傳 identities 為空的假使用者
+    if (data.user?.identities?.length === 0) return { error: '此 Email 可能已註冊，請直接嘗試登入。', needsConfirmation: false };
+    return { error: null, needsConfirmation: true }; // 後台仍開著 Confirm email
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword: string): Promise<string | null> => {
     if (!supabase) return '尚未設定 Supabase。';
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: window.location.origin + window.location.pathname } });
-    return error ? error.message : null;
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return error ? mapAuthError(error.message) : null;
   }, []);
 
   const signOut = useCallback(async () => {
@@ -451,8 +468,9 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     cloudAvailable: isSupabaseConfigured,
     pendingLocalMerge,
     retry,
-    signInOAuth,
-    signInEmail,
+    signInWithPassword,
+    signUpWithPassword,
+    updatePassword,
     signOut,
     mergeLocalToCloud,
     dismissLocalMerge: () => setPendingLocalMerge(false),

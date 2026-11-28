@@ -13,10 +13,11 @@ export default function SyncBadge({ onOpenAuth }: { onOpenAuth: () => void }) {
     );
   }
   if (status === 'synced') {
+    // 可點擊：手機版沒有頂部「帳號」按鈕，登入後要靠這裡開啟修改密碼與登出
     return (
-      <span className={`${base} bg-emerald-100 text-emerald-800`} role="status">
+      <button type="button" onClick={onOpenAuth} aria-label="雲端已同步，開啟帳號與同步設定" className={`${base} bg-emerald-100 text-emerald-800 hover:bg-emerald-200`}>
         <Cloud size={14} aria-hidden /> 雲端已同步 ✓
-      </span>
+      </button>
     );
   }
   if (status === 'error') {

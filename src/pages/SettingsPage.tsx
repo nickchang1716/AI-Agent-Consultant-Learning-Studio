@@ -4,7 +4,7 @@ import { useLearning } from '../context/LearningContext';
 
 const MAX_FILE = 5 * 1024 * 1024;
 
-export default function SettingsPage() {
+export default function SettingsPage({ onOpenAuth }: { onOpenAuth: () => void }) {
   const { snap, setTheme, importLegacy, importBackup, exportBackup, isCloud, cloudAvailable, userEmail, pendingLocalMerge, mergeLocalToCloud, dismissLocalMerge } = useLearning();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const legacyRef = useRef<HTMLInputElement>(null);
@@ -56,6 +56,11 @@ export default function SettingsPage() {
               <button type="button" className="btn-ghost" onClick={dismissLocalMerge}>稍後再說</button>
             </div>
           </div>
+        )}
+        {cloudAvailable && (
+          <button type="button" className="btn-ghost" onClick={onOpenAuth}>
+            {isCloud ? '帳號管理（修改密碼／登出）' : '登入或註冊'}
+          </button>
         )}
       </section>
 
